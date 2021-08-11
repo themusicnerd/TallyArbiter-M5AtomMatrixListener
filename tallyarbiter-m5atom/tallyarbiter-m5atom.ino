@@ -209,10 +209,17 @@ void setDeviceName()
       break;
     }
   }
-  preferences.begin("tally-arbiter", false);
-  preferences.putString("devicename", DeviceName);
-  preferences.putString("deviceid", DeviceId);
-  preferences.end();
+ preferences.begin("tally-arbiter", false);
+  if (preferences.getString("deviceid").length() > 0) {
+    DeviceId = preferences.getString("deviceid");}
+    else {DeviceId = "unassigned";}
+  
+  if (preferences.getString("devicename").length() > 0) {
+    DeviceName = preferences.getString("devicename");}
+    else {DeviceName = "unassigned";}
+  
+  preferences.end(); 
+    
   logger("-------------------------------------------------", "info-quiet");
   logger("DeviceName:" + String(DeviceName), "info-quiet");
   logger("DeviceId:" + String(DeviceId), "info-quiet");
