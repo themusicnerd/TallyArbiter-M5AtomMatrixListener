@@ -537,6 +537,8 @@ void loop()
   // handle reconnecting if disconnected
   if (isReconnecting)
   {
+	unsigned long currentTime = millis();
+      
     if (currentTime - currentReconnectTime >= reconnectInterval)
     {
       Serial.println("trying to re-connect with server");
