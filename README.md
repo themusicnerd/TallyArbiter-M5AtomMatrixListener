@@ -1,8 +1,27 @@
 # TallyArbiter-M5AtomMatrixListener
-This is a Tally Viewer using a M5 Atom Matrix as a TallyArbiter Client.
 This is my attempt at 'mushing' arduino code.
-* Buy them here:
+This is a Tally Viewer using a M5 Atom Matrix as a TallyArbiter Client.
+To learn more about the Tally Arbiter project, [click here](http://github.com/josephdadams/tallyarbiter).
+
+You can buy an M5 ATOM Matrix here:
 https://m5stack.com/collections/m5-atom/products/atom-matrix-esp32-development-kit
+OR
+https://www.adafruit.com/product/4497 (Shipped from USA)
+
+# Instructions
+
+1. Go to https://docs.m5stack.com/en/arduino/arduino_development follow the instructions under heading "Boards Manager"
+2. Open tallyarbiter-m5atom.ino in Arduino IDE https://www.arduino.cc/en/software
+2. Update `networkSSID`, `networkPass` variable to match your Wifi network
+3. Update `tallyarbiter_host` values to match your TallyArbiter installation
+4. In Library Manager install FastLED, SocketIoClient, Arduino_JSON, WebSockets version 2.3.4, and MultiButton
+6. Open `~/Documents/Arduino/libraries/SocketIoClient/SocketIoClient.cpp` in a text editor. Find the line that says `hexdump(payload, length);` and comment it out by adding `//` to the beginning of the line. Save and close that file.
+7. Go In the IDE go to Sketch -> Upload
+
+## Troubleshooting
+
+### macOS
+If you receive an error similar to `ImportError: No module named serial` reference: https://community.m5stack.com/post/11106
 
 # Videos
 
