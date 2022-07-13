@@ -51,10 +51,10 @@ bool isReconnecting = false;
 // default color values
 int GRB_COLOR_WHITE = 0xffffff;
 int GRB_COLOR_BLACK = 0x000000;
-int GRB_COLOR_RED = 0x00ff00;
+int GRB_COLOR_RED = 0xff0000;
 int GRB_COLOR_ORANGE = 0xa5ff00;
 int GRB_COLOR_YELLOW = 0xffff00;
-int GRB_COLOR_GREEN = 0xff0000;
+int GRB_COLOR_GREEN = 0x00ff00;
 int GRB_COLOR_BLUE = 0x0000ff;
 int GRB_COLOR_PURPLE = 0x008080;
 
