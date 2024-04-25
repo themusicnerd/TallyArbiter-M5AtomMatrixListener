@@ -1,5 +1,5 @@
 # TallyArbiter-M5AtomMatrixListener
-This is my attempt at 'mushing' arduino code.
+This is my continued attempt at 'mushing' arduino code.
 This is a Tally Viewer using a M5 Atom Matrix as a TallyArbiter Client.
 To learn more about the Tally Arbiter project, [click here](http://github.com/josephdadams/tallyarbiter).
 
@@ -10,13 +10,18 @@ https://www.adafruit.com/product/4497 (Shipped from USA)
 
 # Instructions
 
-1. Go to https://docs.m5stack.com/en/arduino/arduino_development follow the instructions under heading "Boards Manager"
-2. Open tallyarbiter-m5atom.ino in Arduino IDE https://www.arduino.cc/en/software
-2. Update `networkSSID`, `networkPass` variable to match your Wifi network
-3. Update `tallyarbiter_host` values to match your TallyArbiter installation
-4. In Library Manager install FastLED, SocketIoClient, Arduino_JSON, WebSockets version 2.3.4, and MultiButton
-6. Open `~/Documents/Arduino/libraries/SocketIoClient/SocketIoClient.cpp` in a text editor. Find the line that says `hexdump(payload, length);` and comment it out by adding `//` to the beginning of the line. Save and close that file.
-7. Go In the IDE go to Sketch -> Upload
+1. Download the .bin file here - 
+2. Connect your M5-Atom to your computer using a USB cable
+3. Go to https://web.esphome.io/
+4. Click "Connect"
+5. Select your M5-Atom (USB Serial Port) - Usually COM3
+6. Click "Connect"
+7. Click "Install"
+8. Click "Choose File"
+9. Find and Select the .bin file
+10. Click "INSTALL"
+11. WAIT!
+12. 
 
 ## Troubleshooting
 
@@ -28,7 +33,6 @@ If you receive an error similar to `ImportError: No module named serial` referen
 * What this does when used with TallyArbiter - https://youtu.be/hNhU22OkXek
 * Demo of the M5Atom Matrix code in this git - https://youtu.be/Mc_PCxg6qdc
 * Demo running on 10 M5Atom Matrix units via a cloud server - https://youtu.be/TiqjmXdzPic
-* RAW Step-By-Step Install - With warts and all on a fresh windows installation - https://youtu.be/soj1Cxv3mLY
 
 # Current Updates
 * Tidyed up things a little bit
