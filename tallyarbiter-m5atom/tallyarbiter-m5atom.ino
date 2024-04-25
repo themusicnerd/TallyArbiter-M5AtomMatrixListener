@@ -12,6 +12,8 @@
 #include <Preferences.h>
 #define DATA_PIN_LED 27 // NeoPixelArray
 
+
+
 // Set to true if you want to compile with the ability to show camera number during pvw and pgm
 #define SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM false
 
@@ -52,6 +54,8 @@ String listenerDeviceName = "m5Atom-";
 //leave empty for open Access Point
 const char* AP_password ="";
 
+// Global array to hold rotated numbers
+int rotatedNumber[25];
 
 /* END OF USER VARIABLES
  *  
@@ -83,26 +87,28 @@ String actualColor = "";
 int actualPriority = 0;
 
 // default color values
-int GRB_COLOR_WHITE = 0xffffff;
-int GRB_COLOR_DIMWHITE = 0x555555;
-int GRB_COLOR_BLACK = 0x000000;
-int GRB_COLOR_RED = 0xff0000;
-int GRB_COLOR_ORANGE = 0xa5ff00;
-int GRB_COLOR_YELLOW = 0xffff00;
-int GRB_COLOR_DIMYELLOW = 0x555500;
-int GRB_COLOR_GREEN = 0x00ff00;
-int GRB_COLOR_BLUE = 0x0000ff;
-int GRB_COLOR_PURPLE = 0x008080;
+int RGB_COLOR_WHITE = 0xffffff;
+int RGB_COLOR_DIMWHITE = 0x555555;
+int RGB_COLOR_WARMWHITE = 0xFFEBC8;
+int RGB_COLOR_DIMWARMWHITE = 0x877D5F;
+int RGB_COLOR_BLACK = 0x000000;
+int RGB_COLOR_RED = 0xff0000;
+int RGB_COLOR_ORANGE = 0xa5ff00;
+int RGB_COLOR_YELLOW = 0xffff00;
+int RGB_COLOR_DIMYELLOW = 0x555500;
+int RGB_COLOR_GREEN = 0x008800; // toning this down as the green is way brighter than the other colours
+int RGB_COLOR_BLUE = 0x0000ff;
+int RGB_COLOR_PURPLE = 0x008080;
 
-int numbercolor = GRB_COLOR_WHITE;
+int numbercolor = RGB_COLOR_WARMWHITE;
 
-int flashcolor[] = {GRB_COLOR_WHITE, GRB_COLOR_WHITE};
-int offcolor[] = {GRB_COLOR_BLACK, numbercolor};
-int badcolor[] = {GRB_COLOR_BLACK, GRB_COLOR_RED};
-int readycolor[] = {GRB_COLOR_BLACK, GRB_COLOR_GREEN};
-int alloffcolor[] = {GRB_COLOR_BLACK, GRB_COLOR_BLACK};
-int wificolor[] = {GRB_COLOR_BLACK, GRB_COLOR_BLUE};
-int infocolor[] = {GRB_COLOR_BLACK, GRB_COLOR_ORANGE};
+int flashcolor[] = {RGB_COLOR_WHITE, RGB_COLOR_WHITE};
+int offcolor[] = {RGB_COLOR_BLACK, numbercolor};
+int badcolor[] = {RGB_COLOR_BLACK, RGB_COLOR_RED};
+int readycolor[] = {RGB_COLOR_BLACK, RGB_COLOR_GREEN};
+int alloffcolor[] = {RGB_COLOR_BLACK, RGB_COLOR_BLACK};
+int wificolor[] = {RGB_COLOR_BLACK, RGB_COLOR_BLUE};
+int infocolor[] = {RGB_COLOR_BLACK, RGB_COLOR_ORANGE};
 
 //this is the array that stores the number layout
 int number[17][25] = {{
@@ -346,8 +352,8 @@ void evaluateMode() {
     String hexstring = actualColor;
     long colorNumber = (long) strtol( &hexstring[1], NULL, 16);
  // This order is to compensate for Matrix needing grb.
-    int r = strtol(hexstring.substring(1, 3).c_str(), NULL, 16);
-    int g = strtol(hexstring.substring(3, 5).c_str(), NULL, 16);
+    int r = strtol(hexstring.substring(3, 5).c_str(), NULL, 16);
+    int g = strtol(hexstring.substring(1, 3).c_str(), NULL, 16);
     int b = strtol(hexstring.substring(5).c_str(), NULL, 16);
     
     if (actualType != "") {
@@ -357,12 +363,12 @@ void evaluateMode() {
       //logger("Current camNumber: " + String(camNumber), "info");
 #if SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM
       // If you want the camera number displayed during Pgm and Pvw, change the variable at the top of the file
-      drawNumber(number[camNumber], currColor);
+      drawNumber(rotatedNumber[camNumber], currColor);
 #else
       drawNumber(icons[12], currColor);
 #endif
     } else {
-      drawNumber(number[camNumber], offcolor);
+      drawNumber(rotatedNumber, offcolor);
     }
 
     #if TALLY_EXTRA_OUTPUT
@@ -754,6 +760,14 @@ void setup() {
   //Save battery by turning off BlueTooth
   btStop();
 
+    // Initialize IMU (MPU6886) The rotation sensor
+  if (M5.IMU.Init() != 0) {
+    Serial.println("MPU6886 initialization failed!");
+    while (1) delay(100);
+  } else {
+    Serial.println("MPU6886 initialization successful!");
+  }
+
   // Append last three pairs of MAC to listenerDeviceName to make it some what unique
   byte mac[6];              // the MAC address of your Wifi shield
   WiFi.macAddress(mac);
@@ -859,6 +873,72 @@ void setup() {
 }
 // --------------------------------------------------------------------------------------------------------------------
 
+// Functions for Screen Rotation for AutoRotation
+
+void rotate90(int source[25], int dest[25]) {
+    for (int i = 0; i < 5; ++i) {
+        for (int j = 0; j < 5; ++j) {
+            dest[j * 5 + (4 - i)] = source[i * 5 + j];
+        }
+    }
+}
+
+void rotate180(int source[25], int dest[25]) {
+    for (int i = 0; i < 25; ++i) {
+        dest[24 - i] = source[i];
+    }
+}
+
+void rotate270(int source[25], int dest[25]) {
+    for (int i = 0; i < 5; ++i) {
+        for (int j = 0; j < 5; ++j) {
+            dest[(4 - j) * 5 + i] = source[i * 5 + j];
+        }
+    }
+}
+
+// Screen Update Routine
+void updateDisplayBasedOnOrientation(float accX, float accY, float accZ) {
+
+  //Serial.print("Screen Orientation: ");
+  //Serial.print("Accel X: ");
+  //Serial.print(accX);
+  //Serial.print(" Y: ");
+  //Serial.print(accY);
+  //Serial.print(" Z: ");
+  //Serial.print(accZ);
+  //Serial.println(" m/s^2");
+  
+  // 0.8 is used as a deadband control
+
+  // Check for USB right (Normal orientation)
+  if (accX > 0.8) {
+    Serial.println("USB Right - 0 degrees (normal)");
+    memcpy(rotatedNumber, number[camNumber], sizeof(int) * 25);
+  } 
+  // Check for USB left (180 degrees)
+  else if (accX < -0.8) {
+    Serial.println("USB Left - 180 degrees");
+    rotate180(number[camNumber], rotatedNumber);
+  } 
+  // Check for USB up
+  else if (accY > 0.8) {
+    Serial.println("USB Up - 90 degrees");
+    rotate90(number[camNumber], rotatedNumber);
+  } 
+  // Check for USB down
+  else if (accY < -0.8) {
+    Serial.println("USB Down - 270 degrees");
+    rotate270(number[camNumber], rotatedNumber);
+  } 
+  else {
+    Serial.println("Flat or undefined orientation");
+    memcpy(rotatedNumber, number[camNumber], sizeof(int) * 25);
+  }
+
+}
+
+
 // --------------------------------------------------------------------------------------------------------------------
 // This is the main program loop
 void loop(){
@@ -878,7 +958,7 @@ void loop(){
         delay(100);                                         // Introduce a short delay before closing
         preferences.end();                                  // Close the Preferences after saving
     }
-    drawNumber(number[camNumber], offcolor);
+    drawNumber(rotatedNumber, offcolor);
 
     // Lets get some info sent out the serial connection for debugging
     logger("---------------------------------", "info-quiet");
@@ -909,8 +989,23 @@ void loop(){
       currentReconnectTime = millis();
     }
   }
+
+//#if AUTO_ORIENTATION
+  // Check orientation and autorotate the screen
+
+    // Orientation Sensor Data variables
+  float accX, accY, accZ;
+
+  // Read acceleration data
+  M5.IMU.getAccelData(&accX, &accY, &accZ);
+
+  // Run the rotation change to the variabne rotatedNumber
+  updateDisplayBasedOnOrientation(accX, accY, accZ);
+    
+//  #else
+//  #endif
   
-  delay(50);
+  delay(100);
   M5.update();
 }
 // --------------------------------------------------------------------------------------------------------------------
