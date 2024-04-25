@@ -12,6 +12,8 @@
 #include <Preferences.h>
 #define DATA_PIN_LED 27 // NeoPixelArray
 
+// Set to true if you want to compile with the ability to show camera number during pvw and pgm
+#define SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM true
 
 //M5 variables
 PinButton btnAction(39); //the "Action" button on the device - aka the front screen button for reset - push the front of the led display - ITS A BUTTON!
@@ -22,17 +24,8 @@ Preferences preferences;
 */
 
 //Tally Arbiter Server
-char tallyarbiter_host[40] = "TALLYARBITERSERVERIP";
+char tallyarbiter_host[40] = "TALLYARBITERSERVERIPADDRESS";
 char tallyarbiter_port[6] = "4455";
-
-// Set to true if you want to compile with the ability to show camera number during pvw and pgm
-#define SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM true
-
-// Enables the GPIO pinout
-// Pin 33 for PGM
-// Pin 23 for PVW
-// Pin 19 for AUX
-#define TALLY_EXTRA_OUTPUT true
 
 //Set staticIP to 1 if you want the client to use a static IP address. Default is DHCP.
 //Note that addresses entered here will need to be confirmed when WiFi Manager runs on client.
@@ -56,6 +49,9 @@ String listenerDeviceName = "m5Atom-";
 //leave empty for open Access Point
 const char* AP_password ="";
 
+// Enables the GPIO pinout
+#define TALLY_EXTRA_OUTPUT false
+
 /* END OF USER VARIABLES
  *  
  */
@@ -75,9 +71,9 @@ unsigned long currentReconnectTime = 0;
 bool isReconnecting = false;
 
 #if TALLY_EXTRA_OUTPUT
-const int led_program = 33; //OPTIONAL Led for program on pin G33
-const int led_preview = 22; //OPTIONAL Led for preview on pin G23
-const int led_aux = 19;     //OPTIONAL Led for aux on pin G19
+const int led_program = 33; //Led for program on pin G33 - if TALLY_EXTRA_OUTPUT set to true at top of file
+const int led_preview = 23; //Led for preview on pin G23 - if TALLY_EXTRA_OUTPUT set to true at top of file
+const int led_aux = 19;     //Led for aux on pin G19 - if TALLY_EXTRA_OUTPUT set to true at top of file
 #endif
 
 String prevType = ""; // reduce display flicker by storing previous state
@@ -293,7 +289,7 @@ int icons[13][25] = {
   }, // no icon
 };
 
-// FUNCTION - Logger - logs to serial number
+// Logger - logs to serial number
 void logger(String strLog, String strType) {
   if (strType == "info") {
     Serial.println(strLog);
@@ -302,7 +298,7 @@ void logger(String strLog, String strType) {
     Serial.println(strLog);
   }
 }
-// FUNCTION - Set Device name
+// Set Device name
 void setDeviceName(){
   for (int i = 0; i < Devices.length(); i++) {
     if (JSON.stringify(Devices[i]["id"]) == "\"" + DeviceId + "\"") {
@@ -323,16 +319,14 @@ void setDeviceName(){
 
 //---------------------------------------------------------------
 //HERE IS THE MAIN LED DRAWING ROUTINE aka drawNumber
-// FUNCTION 
 void drawNumber(int arr[], int colors[]) {
   for (int i = 0; i < 25; i++)
   {
-    // debug:
     //Serial.println("i: " + String(i) + " color: " + String(colors[arr[i]]));
     M5.dis.drawpix(i, colors[arr[i]]);
   }
 }
-// FUNCTION
+
 void drawMultiple(int arr[], int colors[], int param_times, int delays) {
   for (int times = param_times; times > 0; times--) {
     drawNumber(arr, colors);
@@ -344,23 +338,22 @@ void drawMultiple(int arr[], int colors[], int param_times, int delays) {
 // Determine if the device is currently in preview, program, or both
 void evaluateMode() {
   if(actualType != prevType) {
-    //Clear the display
     //M5.dis.clear();
     actualColor.replace("#", "");
     String hexstring = actualColor;
     long colorNumber = (long) strtol( &hexstring[1], NULL, 16);
  // This order is to compensate for Matrix needing grb.
-    int g = colorNumber >> 16;
-    int r = colorNumber >> 8 & 0xFF;
-    int b = colorNumber & 0xFF;
+    int r = strtol(hexstring.substring(1, 3).c_str(), NULL, 16);
+    int g = strtol(hexstring.substring(3, 5).c_str(), NULL, 16);
+    int b = strtol(hexstring.substring(5).c_str(), NULL, 16);
     
     if (actualType != "") {
-      int backgroundColor = 0x10000 * g + 0x100 * r + b;
-      int currColor[] = {backgroundColor, numbercolor};
-      logger("Current color: " + String(backgroundColor), "info");
+     int backgroundColorhex = (g << 16) | (r << 8) | b; // Swap positions of RGB to GRB conversion
+      int currColor[] = {backgroundColorhex, numbercolor};
+      logger("Current color: " + String(backgroundColorhex), "info");
       //logger("Current camNumber: " + String(camNumber), "info");
 #if SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM
-      // This is only run if set in the top of file user prefrences.
+      // If you want the camera number displayed during Pgm and Pvw, change the variable at the top of the file
       drawNumber(number[camNumber], currColor);
 #else
       drawNumber(icons[12], currColor);
@@ -368,7 +361,7 @@ void evaluateMode() {
     } else {
       drawNumber(number[camNumber], offcolor);
     }
-    // This is only run if set in the top of file user prefrences.
+
     #if TALLY_EXTRA_OUTPUT
     if (actualType == "\"program\"") {
       digitalWrite(led_program, HIGH);
@@ -397,7 +390,6 @@ void evaluateMode() {
   }  
 }
 
-// FUNCTION - Reconnect
 void startReconnect() {
   if (!isReconnecting)
   {
@@ -406,7 +398,6 @@ void startReconnect() {
   }
 }
 
-// FUNCTION - Connect to Tally Arbiter Server
 void connectToServer() {
   logger("---------------------------------", "info-quiet");
   logger("Connecting to Tally Arbiter host: " + String(tallyarbiter_host), "info-quiet");
@@ -525,7 +516,6 @@ void socket_Reassign(String payload) {
   preferences.end();
   setDeviceName();
 }
-
 void socket_Flash() {
   //flash the screen white 3 times
   logger("The device flashed.", "info-quiet");
@@ -630,10 +620,8 @@ void processTallyData() {
   evaluateMode();
 }
 
-// Here are the WifiManager custom input fields on setup
 WiFiManagerParameter* custom_taServer;
 WiFiManagerParameter* custom_taPort;
-//WiFiManagerParameter* custom_camNumber;
 
 void connectToNetwork() {
   // allow for static IP assignment instead of DHCP if stationIP is defined as something other than 0.0.0.0
@@ -653,14 +641,9 @@ void connectToNetwork() {
   //add TA fields
   custom_taServer = new WiFiManagerParameter("taHostIP", "Tally Arbiter Server", tallyarbiter_host, 40);
   custom_taPort = new WiFiManagerParameter("taHostPort", "Port", tallyarbiter_port, 6);
-    // Convert camNumber to a string
-    //String camNumberString = String(camNumber);
-  // Create WiFiManagerParameter object using the string value
-  //custom_camNumber = new WiFiManagerParameter("camNumber", "Camera Number", camNumberString.c_str(), 2);
 
   wm.addParameter(custom_taServer);
   wm.addParameter(custom_taPort);
-  //wm.addParameter(custom_camNumber);
 
   wm.setSaveParamsCallback(saveParamCallback);
 
@@ -735,28 +718,24 @@ String getParam(String name) {
   return value;
 }
 
-// FUNCTION - Save the paramaters set by the wifimanager portal
+
 void saveParamCallback() {
   logger("[CALLBACK] saveParamCallback fired", "info-quiet");
   logger("PARAM tally Arbiter Server = " + getParam("taHostIP"), "info-quiet");
   String str_taHost = getParam("taHostIP");
   String str_taPort = getParam("taHostPort");
-  //String str_camNumber = getParam("camNumber");
-
-  //str_taHost.toCharArray(tallyarbiter_host, 40);
-  //saveEEPROM();
+  //saveEEPROM(); // this was commented out as prefrences is now being used in place
   logger("Saving new TallyArbiter host", "info-quiet");
   logger(str_taHost, "info-quiet");
   preferences.begin("tally-arbiter", false);
   preferences.putString("taHost", str_taHost);
   preferences.putString("taPort", str_taPort);
-  //preferences.putString("camNumber", str_camNumber);
   preferences.end();
 
 }
 
 // --------------------------------------------------------------------------------------------------------------------
-// FUNTION - "Setup" is the pre-loop running program
+// Setup is the pre-loop running program
 
 void setup() {
   Serial.begin(115200);
@@ -813,21 +792,17 @@ void setup() {
     logger("Setting TallyArbiter port as " + newPort, "info-quiet");
     newPort.toCharArray(tallyarbiter_port, 6);
   }
-//  if (preferences.getString("camNumber") != "0") {
-//    String newCamnumber = preferences.getString("camNumber");
-//    logger("Setting Camera Number to " + newCamnumber, "info-quiet");
-//    //newCamnumber.toCharArray(camNumber, 2);
-//  }
 
-  // get the stored camNumber
-  camNumber = preferences.getInt("cameraNumber");
-
-  // Close the Preferences after saving
   preferences.end();
+
+  //debug
+    char message[200]; // Adjust the size as needed
+    sprintf(message, "After the preferences.end TA Host is: %s TA Port is: %s", tallyarbiter_host, tallyarbiter_port);
+    logger(message, "info-quiet");
+
 
   ArduinoOTA.setHostname(listenerDeviceName.c_str());
   ArduinoOTA.setPassword("tallyarbiter");
-
   ArduinoOTA
     .onStart([]() {
       String type;
@@ -879,24 +854,8 @@ void loop(){
     // Switch action below
     if (camNumber < 16){
       camNumber++;
-      // Open Preferences with no read-only access
-      preferences.begin("tally-arbiter", false);
-      // Save camera number and device name
-      preferences.putInt("cameraNumber", camNumber);
-      // Introduce a short delay before closing
-      delay(100);
-      // Close the Preferences after saving
-      preferences.end();
     } else {
       camNumber = 0;
-      // Open Preferences with no read-only access
-      preferences.begin("tally-arbiter", false);
-      // Save camera number and device name
-      preferences.putInt("cameraNumber", camNumber);
-      // Introduce a short delay before closing
-      delay(100);
-      // Close the Preferences after saving
-      preferences.end();
     }
     drawNumber(number[camNumber], offcolor);
 
