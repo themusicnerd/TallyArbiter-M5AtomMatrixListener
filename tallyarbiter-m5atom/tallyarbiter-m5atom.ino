@@ -13,7 +13,10 @@
 #define DATA_PIN_LED 27 // NeoPixelArray
 
 // Set to true if you want to compile with the ability to show camera number during pvw and pgm
-#define SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM true
+#define SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM false
+
+// Enables the GPIO pinout
+#define TALLY_EXTRA_OUTPUT true
 
 //M5 variables
 PinButton btnAction(39); //the "Action" button on the device - aka the front screen button for reset - push the front of the led display - ITS A BUTTON!
@@ -49,8 +52,6 @@ String listenerDeviceName = "m5Atom-";
 //leave empty for open Access Point
 const char* AP_password ="";
 
-// Enables the GPIO pinout
-#define TALLY_EXTRA_OUTPUT false
 
 /* END OF USER VARIABLES
  *  
@@ -58,7 +59,7 @@ const char* AP_password ="";
 
 //Tally Arbiter variables
 SocketIOclient socket;
-WiFiManager wm; // global wm instance
+WiFiManager WiFiManager; // global WiFiManager instance
 
 JSONVar BusOptions;
 JSONVar Devices;
@@ -83,10 +84,12 @@ int actualPriority = 0;
 
 // default color values
 int GRB_COLOR_WHITE = 0xffffff;
+int GRB_COLOR_DIMWHITE = 0x555555;
 int GRB_COLOR_BLACK = 0x000000;
 int GRB_COLOR_RED = 0xff0000;
 int GRB_COLOR_ORANGE = 0xa5ff00;
 int GRB_COLOR_YELLOW = 0xffff00;
+int GRB_COLOR_DIMYELLOW = 0x555500;
 int GRB_COLOR_GREEN = 0x00ff00;
 int GRB_COLOR_BLUE = 0x0000ff;
 int GRB_COLOR_PURPLE = 0x008080;
@@ -620,15 +623,17 @@ void processTallyData() {
   evaluateMode();
 }
 
+// A whole ton of WiFiManager stuff, first up, here is the Paramaters
 WiFiManagerParameter* custom_taServer;
 WiFiManagerParameter* custom_taPort;
+WiFiManagerParameter* custom_tashownumbersduringtally;
 
 void connectToNetwork() {
   // allow for static IP assignment instead of DHCP if stationIP is defined as something other than 0.0.0.0
   #if staticIP == 1
   if (stationIP != IPAddress(0, 0, 0, 0))
   {
-    wm.setSTAStaticIPConfig(stationIP, stationGW, stationMask); // optional DNS 4th argument 
+    WiFiManager.setSTAStaticIPConfig(stationIP, stationGW, stationMask); // optional DNS 4th argument 
   }
   #endif
   
@@ -636,29 +641,31 @@ void connectToNetwork() {
   logger("Connecting to SSID: " + String(WiFi.SSID()), "info");
 
   //reset settings - wipe credentials for testing
-  //wm.resetSettings();
+  //WiFiManager.resetSettings();
 
   //add TA fields
   custom_taServer = new WiFiManagerParameter("taHostIP", "Tally Arbiter Server", tallyarbiter_host, 40);
   custom_taPort = new WiFiManagerParameter("taHostPort", "Port", tallyarbiter_port, 6);
+ // custom_tashownumbersduringtally = new WiFiManagerParameter("tashownumbersduringtally", "Show Number During Tally (true/false)", SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM, 6);
 
-  wm.addParameter(custom_taServer);
-  wm.addParameter(custom_taPort);
+  WiFiManager.addParameter(custom_taServer);
+  WiFiManager.addParameter(custom_taPort);
+  WiFiManager.addParameter(custom_tashownumbersduringtally);
 
-  wm.setSaveParamsCallback(saveParamCallback);
+  WiFiManager.setSaveParamsCallback(saveParamCallback);
 
   // custom menu via array or vector
   std::vector<const char *> menu = {"wifi","param","info","sep","restart","exit"};
-  wm.setMenu(menu);
+  WiFiManager.setMenu(menu);
 
   // set dark theme
-  wm.setClass("invert");
+  WiFiManager.setClass("invert");
 
-  wm.setConfigPortalTimeout(120); // auto close configportal after n seconds
+  WiFiManager.setConfigPortalTimeout(120); // auto close configportal after n seconds
 
   bool res;
   
-  res = wm.autoConnect(listenerDeviceName.c_str(),AP_password);
+  res = WiFiManager.autoConnect(listenerDeviceName.c_str(),AP_password);
 
   if (!res) {
     logger("Failed to connect", "error");
@@ -712,8 +719,8 @@ void connectToNetwork() {
 String getParam(String name) {
   //read parameter from server, for customhmtl input
   String value;
-  if (wm.server->hasArg(name)) {
-    value = wm.server->arg(name);
+  if (WiFiManager.server->hasArg(name)) {
+    value = WiFiManager.server->arg(name);
   }
   return value;
 }
@@ -724,12 +731,14 @@ void saveParamCallback() {
   logger("PARAM tally Arbiter Server = " + getParam("taHostIP"), "info-quiet");
   String str_taHost = getParam("taHostIP");
   String str_taPort = getParam("taHostPort");
+  String str_tashownumbersduringtally = getParam("tashownumbersduringtally");
   //saveEEPROM(); // this was commented out as prefrences is now being used in place
   logger("Saving new TallyArbiter host", "info-quiet");
   logger(str_taHost, "info-quiet");
   preferences.begin("tally-arbiter", false);
   preferences.putString("taHost", str_taHost);
   preferences.putString("taPort", str_taPort);
+  preferences.putString("tashownumbersduringtally", str_tashownumbersduringtally);
   preferences.end();
 
 }
@@ -752,7 +761,7 @@ void setup() {
   logger("Listener device name: " + listenerDeviceName, "info");
 
   // Set WiFi hostname
-  wm.setHostname ((const char *) listenerDeviceName.c_str());
+  WiFiManager.setHostname ((const char *) listenerDeviceName.c_str());
 
   M5.begin(true, false, true);
   delay(50);
@@ -772,26 +781,30 @@ void setup() {
   
   connectToNetwork(); //starts Wifi connection
 
+  // Load from non-volatile memory
   preferences.begin("tally-arbiter", false);
-  if (preferences.getString("deviceid").length() > 0) {
-    DeviceId = preferences.getString("deviceid");
-    //DeviceId = "unassigned";
-  }
-  if (preferences.getString("devicename").length() > 0) {
-    DeviceName = preferences.getString("devicename");
-    //DeviceName = "unassigned";
-  }
 
-  if(preferences.getString("taHost").length() > 0){
-    String newHost = preferences.getString("taHost");
-    logger("Setting TallyArbiter host as " + newHost, "info-quiet");
-    newHost.toCharArray(tallyarbiter_host, 40);
-  }
-  if(preferences.getString("taPort").length() > 0){
-    String newPort = preferences.getString("taPort");
-    logger("Setting TallyArbiter port as " + newPort, "info-quiet");
-    newPort.toCharArray(tallyarbiter_port, 6);
-  }
+    if (preferences.getString("deviceid").length() > 0) {
+      DeviceId = preferences.getString("deviceid");
+      //DeviceId = "unassigned";
+    }
+    if (preferences.getString("devicename").length() > 0) {
+      DeviceName = preferences.getString("devicename");
+      //DeviceName = "unassigned";
+    }
+
+    if(preferences.getString("taHost").length() > 0){
+      String newHost = preferences.getString("taHost");
+      logger("Setting TallyArbiter host as " + newHost, "info-quiet");
+      newHost.toCharArray(tallyarbiter_host, 40);
+    }
+    if(preferences.getString("taPort").length() > 0){
+      String newPort = preferences.getString("taPort");
+      logger("Setting TallyArbiter port as " + newPort, "info-quiet");
+      newPort.toCharArray(tallyarbiter_port, 6);
+    }
+    camNumber = preferences.getInt("camNumber"); // Get camera from memory
+//    SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM = preferences.getInt("tashownumbersduringtally"); // Get prefrence for Showing numbers during tally (default false)
 
   preferences.end();
 
@@ -853,9 +866,17 @@ void loop(){
   if (M5.Btn.wasPressed()){
     // Switch action below
     if (camNumber < 16){
-      camNumber++;
+      camNumber++;  
+        preferences.begin("tally-arbiter", false);          // Open Preferences with no read-only access
+        preferences.putInt("camNumber", camNumber);      // Save camera number
+        delay(100);                                         // Introduce a short delay before closing
+        preferences.end();                                  // Close the Preferences after saving
     } else {
       camNumber = 0;
+        preferences.begin("tally-arbiter", false);          // Open Preferences with no read-only access
+        preferences.putInt("camNumber", camNumber);      // Save camera number
+        delay(100);                                         // Introduce a short delay before closing
+        preferences.end();                                  // Close the Preferences after saving
     }
     drawNumber(number[camNumber], offcolor);
 
@@ -872,7 +893,7 @@ void loop(){
     
   // Is WiFi reset triggered?
   if (M5.Btn.pressedFor(5000)){
-    wm.resetSettings();
+    WiFiManager.resetSettings();
     ESP.restart();
   }
 
