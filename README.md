@@ -8,20 +8,31 @@ https://m5stack.com/collections/m5-atom/products/atom-matrix-esp32-development-k
 OR
 https://www.adafruit.com/product/4497 (Shipped from USA)
 
-# Instructions
+# Instructions 
+This is the slower (but seems to always work) way:
 
-1. Download the .bin file here - 
-2. Connect your M5-Atom to your computer using a USB cable
-3. Go to https://web.esphome.io/
-4. Click "Connect"
+1. Download the .bin file here - https://github.com/themusicnerd/TallyArbiter-M5AtomMatrixListener/blob/main/tallyarbiter-m5atom.bin
+2. Download ESPHomeFlasher here - https://github.com/esphome/esphome-flasher/releases/tag/1.4.0
+3. Connect your M5-Atom to your computer using a USB cable
+4. Open ESPHome Flasher
 5. Select your M5-Atom (USB Serial Port) - Usually COM3
-6. Click "Connect"
-7. Click "Install"
-8. Click "Choose File"
-9. Find and Select the .bin file
-10. Click "INSTALL"
-11. WAIT!
-12. 
+6. Click Browse
+7. Find and Select the .bin file
+8. Click "Flash ESP"
+9. WAIT for Configuration installed! (takes about 90 seconds)
+10. Within 2 min on boot - get a wifi device and connect to the m5atom-XXXXX wifi network (note the XXXXXX for later)
+11. Wait for captive portal or goto 192.168.4.1
+12. Click "Setup"
+13. Enter Tally Arbiter Server IP Address
+14. Check Tally Arbiter Port is correct (Defulat 4455)
+15. Click Save
+16. Renavigate to 192.168.4.1
+17. Click Configure WiFi
+18. WAIT while is scans wifi networks
+19. Configure Wifi
+20. Wait for green tick
+21. Press screen (which is a button) to set the number on the local screen only
+22. Assign unit in Tally Arbiter under Settings > Listeners > m5Atom-XXXXXX
 
 ## Troubleshooting
 
