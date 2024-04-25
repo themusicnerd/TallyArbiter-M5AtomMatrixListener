@@ -633,7 +633,7 @@ void processTallyData() {
 // Here are the WifiManager custom input fields on setup
 WiFiManagerParameter* custom_taServer;
 WiFiManagerParameter* custom_taPort;
-WiFiManagerParameter* custom_camNumber;
+//WiFiManagerParameter* custom_camNumber;
 
 void connectToNetwork() {
   // allow for static IP assignment instead of DHCP if stationIP is defined as something other than 0.0.0.0
@@ -654,13 +654,13 @@ void connectToNetwork() {
   custom_taServer = new WiFiManagerParameter("taHostIP", "Tally Arbiter Server", tallyarbiter_host, 40);
   custom_taPort = new WiFiManagerParameter("taHostPort", "Port", tallyarbiter_port, 6);
     // Convert camNumber to a string
-    String camNumberString = String(camNumber);
+    //String camNumberString = String(camNumber);
   // Create WiFiManagerParameter object using the string value
-  custom_camNumber = new WiFiManagerParameter("camNumber", "Camera Number", camNumberString.c_str(), 2);
+  //custom_camNumber = new WiFiManagerParameter("camNumber", "Camera Number", camNumberString.c_str(), 2);
 
   wm.addParameter(custom_taServer);
   wm.addParameter(custom_taPort);
-  wm.addParameter(custom_camNumber);
+  //wm.addParameter(custom_camNumber);
 
   wm.setSaveParamsCallback(saveParamCallback);
 
@@ -741,7 +741,7 @@ void saveParamCallback() {
   logger("PARAM tally Arbiter Server = " + getParam("taHostIP"), "info-quiet");
   String str_taHost = getParam("taHostIP");
   String str_taPort = getParam("taHostPort");
-  String str_camNumber = getParam("camNumber");
+  //String str_camNumber = getParam("camNumber");
 
   //str_taHost.toCharArray(tallyarbiter_host, 40);
   //saveEEPROM();
@@ -750,7 +750,7 @@ void saveParamCallback() {
   preferences.begin("tally-arbiter", false);
   preferences.putString("taHost", str_taHost);
   preferences.putString("taPort", str_taPort);
-  preferences.putString("camNumber", str_camNumber);
+  //preferences.putString("camNumber", str_camNumber);
   preferences.end();
 
 }
@@ -813,16 +813,21 @@ void setup() {
     logger("Setting TallyArbiter port as " + newPort, "info-quiet");
     newPort.toCharArray(tallyarbiter_port, 6);
   }
-  if (preferences.getString("camNumber") != "0") {
-    String newCamnumber = preferences.getString("camNumber");
-    logger("Setting Camera Number to " + newCamnumber, "info-quiet");
-    //newCamnumber.toCharArray(camNumber, 2);
-  }
+//  if (preferences.getString("camNumber") != "0") {
+//    String newCamnumber = preferences.getString("camNumber");
+//    logger("Setting Camera Number to " + newCamnumber, "info-quiet");
+//    //newCamnumber.toCharArray(camNumber, 2);
+//  }
 
+  // get the stored camNumber
+  camNumber = preferences.getInt("cameraNumber");
+
+  // Close the Preferences after saving
   preferences.end();
 
   ArduinoOTA.setHostname(listenerDeviceName.c_str());
   ArduinoOTA.setPassword("tallyarbiter");
+
   ArduinoOTA
     .onStart([]() {
       String type;
