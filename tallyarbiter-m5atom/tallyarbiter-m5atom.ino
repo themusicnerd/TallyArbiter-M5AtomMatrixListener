@@ -913,26 +913,26 @@ void updateDisplayBasedOnOrientation(float accX, float accY, float accZ) {
 
   // Check for USB right (Normal orientation)
   if (accX > 0.8) {
-    Serial.println("USB Right - 0 degrees (normal)");
+  //  Serial.println("USB Right - 0 degrees (normal)");
     memcpy(rotatedNumber, number[camNumber], sizeof(int) * 25);
   } 
   // Check for USB left (180 degrees)
   else if (accX < -0.8) {
-    Serial.println("USB Left - 180 degrees");
+  //  Serial.println("USB Left - 180 degrees");
     rotate180(number[camNumber], rotatedNumber);
   } 
   // Check for USB up
   else if (accY > 0.8) {
-    Serial.println("USB Up - 90 degrees");
+  //  Serial.println("USB Up - 90 degrees");
     rotate90(number[camNumber], rotatedNumber);
   } 
   // Check for USB down
   else if (accY < -0.8) {
-    Serial.println("USB Down - 270 degrees");
+  //  Serial.println("USB Down - 270 degrees");
     rotate270(number[camNumber], rotatedNumber);
   } 
   else {
-    Serial.println("Flat or undefined orientation");
+  //  Serial.println("Flat or undefined orientation");
     memcpy(rotatedNumber, number[camNumber], sizeof(int) * 25);
   }
 
