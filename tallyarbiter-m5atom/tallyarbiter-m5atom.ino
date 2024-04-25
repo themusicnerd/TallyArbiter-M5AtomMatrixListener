@@ -626,7 +626,7 @@ void processTallyData() {
 // A whole ton of WiFiManager stuff, first up, here is the Paramaters
 WiFiManagerParameter* custom_taServer;
 WiFiManagerParameter* custom_taPort;
-WiFiManagerParameter* custom_tashownumbersduringtally;
+//WiFiManagerParameter* custom_tashownumbersduringtally;
 
 void connectToNetwork() {
   // allow for static IP assignment instead of DHCP if stationIP is defined as something other than 0.0.0.0
@@ -650,7 +650,7 @@ void connectToNetwork() {
 
   WiFiManager.addParameter(custom_taServer);
   WiFiManager.addParameter(custom_taPort);
-  WiFiManager.addParameter(custom_tashownumbersduringtally);
+  //WiFiManager.addParameter(custom_tashownumbersduringtally);
 
   WiFiManager.setSaveParamsCallback(saveParamCallback);
 
