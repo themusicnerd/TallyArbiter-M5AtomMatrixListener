@@ -10,15 +10,20 @@
 #include <ArduinoOTA.h>
 #include <ESPmDNS.h>
 #include <Preferences.h>
+#include <esp32-hal-ledc.h>
+
 #define DATA_PIN_LED 27 // NeoPixelArray
 
-
-
 // Set to true if you want to compile with the ability to show camera number during pvw and pgm
-#define SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM false
+#define SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM true
 
 // Enables the GPIO pinout
 #define TALLY_EXTRA_OUTPUT true
+const int pwmChannel = 0;
+const int freq = 5000;  // Frequency of PWM signal (5 kHz)
+const int resolution = 8;  // 8-bit resolution
+const int brightness = 200; //0-254 brightness
+
 
 //M5 variables
 PinButton btnAction(39); //the "Action" button on the device - aka the front screen button for reset - push the front of the led display - ITS A BUTTON!
@@ -29,7 +34,7 @@ Preferences preferences;
 */
 
 //Tally Arbiter Server
-char tallyarbiter_host[40] = "TALLYARBITERSERVERIPADDRESS";
+char tallyarbiter_host[40] = "TallyArbiterServerIP";
 char tallyarbiter_port[6] = "4455";
 
 //Set staticIP to 1 if you want the client to use a static IP address. Default is DHCP.
@@ -44,10 +49,10 @@ IPAddress stationMask = IPAddress(255, 255, 255, 0);
 #endif
 
 //Local Default Camera Number. Used for local display only - does not impact function. Zero results in a single dot displayed.
-int camNumber = 0;
+int camNumber = 1;
 
 // Name of the device - the 3 last bytes of the mac address will be appended to create a unique identifier for the server.
-String listenerDeviceName = "m5Atom-";
+String listenerDeviceName = "m5Atom-CAM-";
 
 //M5atom Access Point Password
 //minimum of 8 characters
@@ -77,14 +82,16 @@ bool isReconnecting = false;
 
 #if TALLY_EXTRA_OUTPUT
 const int led_program = 33; //Led for program on pin G33 - if TALLY_EXTRA_OUTPUT set to true at top of file
-const int led_preview = 23; //Led for preview on pin G23 - if TALLY_EXTRA_OUTPUT set to true at top of file
+const int led_preview = 22; //Led for preview on pin G22 - if TALLY_EXTRA_OUTPUT set to true at top of file
 const int led_aux = 19;     //Led for aux on pin G19 - if TALLY_EXTRA_OUTPUT set to true at top of file
+const int led_gnd = 23;     //Led for ground pin on G23 for RGB LED from jaycar
 #endif
 
 String prevType = ""; // reduce display flicker by storing previous state
 String actualType = "";
 String actualColor = "";
 int actualPriority = 0;
+long colorNumber = 0;
 
 // default color values
 int RGB_COLOR_WHITE = 0xffffff;
@@ -117,103 +124,103 @@ int number[17][25] = {{
     0, 0, 0, 0, 1,
     0, 0, 0, 0, 0,
     0, 0, 0, 0, 0
-  },
+  }, // Number 0 - (single dot)
   { 0, 0, 0, 0, 0,
     0, 0, 0, 0, 1,
     1, 1, 1, 1, 1,
     0, 1, 0, 0, 1,
     0, 0, 0, 0, 0
-  },
+  }, // Number 1
   { 0, 0, 0, 0, 0,
     1, 1, 1, 0, 1,
     1, 0, 1, 0, 1,
     1, 0, 1, 1, 1,
     0, 0, 0, 0, 0
-  },
+  }, // Number 2
   { 0, 0, 0, 0, 0,
     1, 1, 1, 1, 1,
     1, 0, 1, 0, 1,
     1, 0, 1, 0, 1,
     0, 0, 0, 0, 0
-  },
+  }, // Number 3
   { 0, 0, 0, 0, 0,
     1, 1, 1, 1, 1,
     0, 0, 1, 0, 0,
     1, 1, 1, 0, 0,
     0, 0, 0, 0, 0
-  },
+  }, // Number 4
   { 0, 0, 0, 0, 0,
     1, 0, 1, 1, 1,
     1, 0, 1, 0, 1,
     1, 1, 1, 0, 1,
     0, 0, 0, 0, 0
-  },
+  }, // Number 5
   { 0, 0, 0, 0, 0,
     1, 0, 1, 1, 1,
     1, 0, 1, 0, 1,
     1, 1, 1, 1, 1,
     0, 0, 0, 0, 0
-  },
+  }, // Number 6
   { 0, 0, 0, 0, 0,
     1, 1, 0, 0, 0,
     1, 0, 1, 0, 0,
     1, 0, 0, 1, 1,
     0, 0, 0, 0, 0
-  },
+  }, // Number 7
   { 0, 0, 0, 0, 0,
     1, 1, 1, 1, 1,
     1, 0, 1, 0, 1,
     1, 1, 1, 1, 1,
     0, 0, 0, 0, 0
-  },
+  }, // Number 8
   { 0, 0, 0, 0, 0,
     1, 1, 1, 1, 1,
     1, 0, 1, 0, 1,
     1, 1, 1, 0, 1,
     0, 0, 0, 0, 0
-  },
+  }, // Number 9
   { 1, 1, 1, 1, 1,
     1, 0, 0, 0, 1,
     1, 1, 1, 1, 1,
     0, 0, 0, 0, 0,
     1, 1, 1, 1, 1
-  },
+  }, // Number 10
   { 0, 0, 0, 0, 0,
     1, 1, 1, 1, 1,
     0, 0, 0, 0, 0,
     1, 1, 1, 1, 1,
     0, 0, 0, 0, 0
-  },
+  }, // Number 11
   { 1, 1, 1, 0, 1,
     1, 0, 1, 0, 1,
     1, 0, 1, 1, 1,
     0, 0, 0, 0, 0,
     1, 1, 1, 1, 1
-  },
+  }, // Number 12
   { 1, 1, 1, 1, 1,
     1, 0, 1, 0, 1,
     1, 0, 1, 0, 1,
     0, 0, 0, 0, 0,
     1, 1, 1, 1, 1
-  },
+  }, // Number 13
   { 1, 1, 1, 1, 1,
     0, 0, 1, 0, 0,
     1, 1, 1, 0, 0,
     0, 0, 0, 0, 0,
     1, 1, 1, 1, 1
-  },
+  }, // Number 14
   { 1, 0, 1, 1, 1,
     1, 0, 1, 0, 1,
     1, 1, 1, 0, 1,
     0, 0, 0, 0, 0,
     1, 1, 1, 1, 1
-  },
+  }, // Number 15
   { 1, 0, 1, 1, 1,
     1, 0, 1, 0, 1,
     1, 1, 1, 1, 1,
     0, 0, 0, 0, 0,
     1, 1, 1, 1, 1
-  },
+  }, // Number 16
 };
 
 // this array stores all the icons for the display
@@ -350,7 +357,7 @@ void evaluateMode() {
     //M5.dis.clear();
     actualColor.replace("#", "");
     String hexstring = actualColor;
- //   long colorNumber = (long) strtol( &hexstring[1], NULL, 16);
+    long colorNumber = (long) strtol( &hexstring[1], NULL, 16);
  // This order is to compensate for Matrix needing grb.
     int r = strtol(hexstring.substring(3, 5).c_str(), NULL, 16);
     int g = strtol(hexstring.substring(1, 3).c_str(), NULL, 16);
@@ -363,7 +370,7 @@ void evaluateMode() {
       //logger("Current camNumber: " + String(camNumber), "info");
 #if SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM
       // If you want the camera number displayed during Pgm and Pvw, change the variable at the top of the file
-      drawNumber(rotatedNumber[camNumber], currColor);
+      drawNumber(rotatedNumber, currColor);
 #else
       drawNumber(icons[12], currColor);
 #endif
@@ -373,21 +380,25 @@ void evaluateMode() {
 
     #if TALLY_EXTRA_OUTPUT
     if (actualType == "\"program\"") {
-      digitalWrite(led_program, HIGH);
+      digitalWrite (led_program, HIGH);
       digitalWrite (led_preview, LOW);
       digitalWrite (led_aux, LOW);
+      digitalWrite (led_gnd, LOW);
     } else if (actualType == "\"preview\"") {
       digitalWrite(led_program, LOW);
       digitalWrite (led_preview, HIGH);
       digitalWrite (led_aux, LOW);
+      digitalWrite (led_gnd, LOW);
     } else if (actualType == "\"aux\"") {
       digitalWrite(led_program, LOW);
       digitalWrite (led_preview, LOW);
       digitalWrite (led_aux, HIGH);
+      digitalWrite (led_gnd, LOW);
     } else {
       digitalWrite(led_program, LOW);
       digitalWrite (led_preview, LOW);
       digitalWrite (led_aux, LOW);
+      digitalWrite (led_gnd, LOW);
     }
     #endif
 
@@ -629,11 +640,20 @@ void processTallyData() {
   evaluateMode();
 }
 
-// A whole ton of WiFiManager stuff, first up, here is the Paramaters
+// A whole ton of WiFiManager stuff, first up, here are the custom Paramaters
 WiFiManagerParameter* custom_taServer;
 WiFiManagerParameter* custom_taPort;
-//WiFiManagerParameter* custom_tashownumbersduringtally;
+WiFiManagerParameter* custom_taCameraIDStartup;
+WiFiManagerParameter* custom_listenerDeviceName;
+WiFiManagerParameter* custom_tashownumbersduringtally;
+WiFiManagerParameter* custom_taGPOOutput;
+WiFiManagerParameter* custom_taStaticIP;
+WiFiManagerParameter* custom_taStaticIPAddress;
+WiFiManagerParameter* custom_taStaticIPSubnetmask;
+WiFiManagerParameter* custom_taStaticIPGateway;
 
+
+  
 void connectToNetwork() {
   // allow for static IP assignment instead of DHCP if stationIP is defined as something other than 0.0.0.0
   #if staticIP == 1
@@ -649,14 +669,15 @@ void connectToNetwork() {
   //reset settings - wipe credentials for testing
   //WiFiManager.resetSettings();
 
-  //add TA fields
+  // These are custom fields to the webgui
   custom_taServer = new WiFiManagerParameter("taHostIP", "Tally Arbiter Server", tallyarbiter_host, 40);
   custom_taPort = new WiFiManagerParameter("taHostPort", "Port", tallyarbiter_port, 6);
- // custom_tashownumbersduringtally = new WiFiManagerParameter("tashownumbersduringtally", "Show Number During Tally (true/false)", SHOW_CAMERA_NUMBER_DURING_PVW_AND_PGM, 6);
+  custom_listenerDeviceName = new WiFiManagerParameter("listenerDeviceName", "Listener Device Name", listenerDeviceName.c_str(), 40);
+
 
   WiFiManager.addParameter(custom_taServer);
   WiFiManager.addParameter(custom_taPort);
-  //WiFiManager.addParameter(custom_tashownumbersduringtally);
+  WiFiManager.addParameter(custom_listenerDeviceName);
 
   WiFiManager.setSaveParamsCallback(saveParamCallback);
 
@@ -669,9 +690,7 @@ void connectToNetwork() {
 
   WiFiManager.setConfigPortalTimeout(120); // auto close configportal after n seconds
 
-  bool res;
-  
-  res = WiFiManager.autoConnect(listenerDeviceName.c_str(),AP_password);
+  bool res = WiFiManager.autoConnect(listenerDeviceName.c_str(),AP_password);
 
   if (!res) {
     logger("Failed to connect", "error");
@@ -737,15 +756,19 @@ void saveParamCallback() {
   logger("PARAM tally Arbiter Server = " + getParam("taHostIP"), "info-quiet");
   String str_taHost = getParam("taHostIP");
   String str_taPort = getParam("taHostPort");
-  String str_tashownumbersduringtally = getParam("tashownumbersduringtally");
+  String str_listenerDeviceName = getParam("listenerDeviceName");
   //saveEEPROM(); // this was commented out as prefrences is now being used in place
   logger("Saving new TallyArbiter host", "info-quiet");
   logger(str_taHost, "info-quiet");
   preferences.begin("tally-arbiter", false);
   preferences.putString("taHost", str_taHost);
   preferences.putString("taPort", str_taPort);
-  preferences.putString("tashownumbersduringtally", str_tashownumbersduringtally);
+  preferences.putString("listenerDeviceName", str_listenerDeviceName);
   preferences.end();
+
+  // Update listenerDeviceName with the new value
+  listenerDeviceName = str_listenerDeviceName;
+  logger("New listenerDeviceName: " + listenerDeviceName, "info");
 
 }
 
@@ -756,6 +779,19 @@ void setup() {
   Serial.begin(115200);
   while (!Serial);
   logger("Initializing M5-Atom.", "info-quiet");
+
+  // Lets setup the PWM LEG output
+  // Set up the PWM on GPIO 25 using channel 0, frequency 5000 Hz, and 8-bit resolution
+  bool success = ledcAttach(25, 5000, 8);  // Attach GPIO 25 to PWM with frequency and resolution
+  
+  // Check if configuration was successful
+  if (success) {
+    // Set PWM duty cycle (50% brightness, 128 out of 255 for 8-bit resolution)
+    ledcWriteChannel(0, 128);  // Use channel 0 to set the duty cycle
+    logger("PWM setup worked!.", "info");
+  } else {
+    logger("PWM setup failed.", "error");
+  }
   
   //Save battery by turning off BlueTooth
   btStop();
@@ -775,7 +811,7 @@ void setup() {
   logger("Listener device name: " + listenerDeviceName, "info");
 
   // Set WiFi hostname
-  WiFiManager.setHostname ((const char *) listenerDeviceName.c_str());
+  WiFiManager.setHostname(listenerDeviceName.c_str());
 
   M5.begin(true, false, true);
   delay(50);
@@ -797,6 +833,11 @@ void setup() {
 
   // Load from non-volatile memory
   preferences.begin("tally-arbiter", false);
+
+    if (preferences.getString("listenerDeviceName").length() > 0) {
+      listenerDeviceName = preferences.getString("listenerDeviceName");
+        logger("Listener device name: " + listenerDeviceName, "info");
+    }
 
     if (preferences.getString("deviceid").length() > 0) {
       DeviceId = preferences.getString("deviceid");
@@ -866,6 +907,8 @@ void setup() {
   digitalWrite(led_preview, HIGH);
   pinMode(led_aux, OUTPUT);
   digitalWrite(led_aux, HIGH);
+  pinMode(led_gnd, OUTPUT);
+  digitalWrite(led_gnd, HIGH);
   #endif  
   
   connectToServer();
@@ -958,7 +1001,10 @@ void loop(){
         delay(100);                                         // Introduce a short delay before closing
         preferences.end();                                  // Close the Preferences after saving
     }
+    // Lets Draw the Matrix Screen
     drawNumber(rotatedNumber, offcolor);
+
+
 
     // Lets get some info sent out the serial connection for debugging
     logger("---------------------------------", "info-quiet");
@@ -971,6 +1017,13 @@ void loop(){
     logger("---------------------------------", "info-quiet");
   }
     
+  // Is WiFi reset triggered?
+  if (M5.Btn.pressedFor(5000)){
+    WiFiManager.resetSettings();
+    ESP.restart();
+  }
+
+
   // Is WiFi reset triggered?
   if (M5.Btn.pressedFor(5000)){
     WiFiManager.resetSettings();
